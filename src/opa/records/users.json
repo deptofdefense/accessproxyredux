@@ -1,0 +1,12 @@
+{
+    "users": [
+        { 
+            "name": "black3",
+            "roles": [
+                "admin",
+                "mattermost-admin",
+                "mattermost"
+            ]
+        }
+    ]
+}

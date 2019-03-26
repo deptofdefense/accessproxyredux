@@ -1,0 +1,30 @@
+{
+    "acls": [
+        {
+            "host": "usmc.mil.nf",
+            "rules": [
+                {
+                    "path": "/admin_console",
+                    "role": "mattermost-admin"
+                },
+                {
+                    "path": "/api/v4/config",
+                    "role": "mattermost-admin"
+                },
+                {
+                    "path": "/api/v4/config/client",
+                    "role": "mattermost"
+                }
+            ]
+        },
+        {
+           "host": "usmc.mil.nf" ,
+           "rules": [
+               {
+                   "path": "/",
+                   "role": "admin"
+               }
+           ]
+        }
+    ]
+}

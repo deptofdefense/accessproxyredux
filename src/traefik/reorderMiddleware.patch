@@ -1,0 +1,50 @@
+From a249490005f84fffdb36dc4fb7a9183f77b98e6e Mon Sep 17 00:00:00 2001
+From: Tom Bereknyei <tom@dds.mil>
+Date: Tue, 5 Mar 2019 17:06:36 -0500
+Subject: [PATCH] Reorder Auth and TLSClientHeaders middleware
+
+This provides ForwardAuth the chance to inspect and make decisions based
+on the TLS information.
+---
+ server/server_middlewares.go | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/server/server_middlewares.go b/server/server_middlewares.go
+index 9a2922b3..5c4672ca 100644
+--- a/server/server_middlewares.go
++++ b/server/server_middlewares.go
+@@ -112,6 +112,15 @@ func (s *Server) buildMiddlewares(frontendName string, frontend *types.Frontend,
+ 		middle = append(middle, handler)
+ 	}
+ 
++	// TLSClientHeaders
++	tlsClientHeadersMiddleware := middlewares.NewTLSClientHeaders(frontend)
++	if tlsClientHeadersMiddleware != nil {
++		log.Debugf("Adding TLSClientHeaders middleware for frontend %s", frontendName)
++
++		handler := s.tracingMiddleware.NewNegroniHandlerWrapper("TLSClientHeaders", tlsClientHeadersMiddleware, false)
++		middle = append(middle, handler)
++	}
++
+ 	// Authentication
+ 	if frontend.Auth != nil {
+ 		authMiddleware, err := mauth.NewAuthenticator(frontend.Auth, s.tracingMiddleware)
+@@ -123,15 +132,6 @@ func (s *Server) buildMiddlewares(frontendName string, frontend *types.Frontend,
+ 		middle = append(middle, handler)
+ 	}
+ 
+-	// TLSClientHeaders
+-	tlsClientHeadersMiddleware := middlewares.NewTLSClientHeaders(frontend)
+-	if tlsClientHeadersMiddleware != nil {
+-		log.Debugf("Adding TLSClientHeaders middleware for frontend %s", frontendName)
+-
+-		handler := s.tracingMiddleware.NewNegroniHandlerWrapper("TLSClientHeaders", tlsClientHeadersMiddleware, false)
+-		middle = append(middle, handler)
+-	}
+-
+ 	return middle, buildModifyResponse(secureMiddleware, headerMiddleware), postConfig, nil
+ }
+ 
+-- 
+2.17.1
+

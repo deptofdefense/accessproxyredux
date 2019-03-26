@@ -1,0 +1,972 @@
+From 2be46ee503c8daaaa1a5dc1fe5cb1e7735f0ff26 Mon Sep 17 00:00:00 2001
+From: Benjamin Staffin <benley@gmail.com>
+Date: Mon, 4 Feb 2019 03:33:17 -0500
+Subject: [PATCH 01/12] WIP: Run Docker containers as declarative systemd
+ services
+
+---
+ nixos/modules/module-list.nix                 |  1 +
+ .../virtualisation/docker-containers.nix      | 84 +++++++++++++++++++
+ 2 files changed, 85 insertions(+)
+ create mode 100644 nixos/modules/virtualisation/docker-containers.nix
+
+diff --git a/nixos/modules/module-list.nix b/nixos/modules/module-list.nix
+index 3ee242ab222..e9b0b95b731 100644
+--- a/nixos/modules/module-list.nix
++++ b/nixos/modules/module-list.nix
+@@ -851,6 +851,7 @@
+   ./virtualisation/container-config.nix
+   ./virtualisation/containers.nix
+   ./virtualisation/docker.nix
++  ./virtualisation/docker-containers.nix
+   ./virtualisation/ecs-agent.nix
+   ./virtualisation/libvirtd.nix
+   ./virtualisation/lxc.nix
+diff --git a/nixos/modules/virtualisation/docker-containers.nix b/nixos/modules/virtualisation/docker-containers.nix
+new file mode 100644
+index 00000000000..f3e15ec3600
+--- /dev/null
++++ b/nixos/modules/virtualisation/docker-containers.nix
+@@ -0,0 +1,84 @@
++{ config, lib, pkgs, ... }:
++
++with lib;
++let
++  cfg = config.docker-containers;
++
++  dockerContainer =
++    { name, config, ... }: {
++
++      options = {
++        image = mkOption {
++          type = types.str;
++          description = "Docker image to run.";
++        };
++        args = mkOption {
++          type =  with types; listOf string;
++          default = [];
++          description = "Args to pass to the image.";
++        };
++        entrypoint = mkOption {
++          type = types.nullOr types.string;
++          description = "Overwrite the default ENTRYPOINT of the image.";
++          default = null;
++        };
++        volumes = mkOption {
++          type = with types; listOf string;
++          default = [];
++          description = "List of volumes to attach to this container.";
++          example = [
++            "volume_name:/path/inside/container"
++            "/path/on/host:/path/inside/container"
++          ];
++        };
++        extraDockerOptions = mkOption {
++          type = with types; listOf string;
++          default = [];
++          description = "Extra options for `docker run`.";
++          example = ["--network=host"];
++        };
++      };
++    };
++
++  mkService = name: container:
++    let containerName = "nixos-${name}"; in {
++      wantedBy = [ "multi-user.target" ];
++      after = [ "docker.service" "docker.socket" ];
++      requires = [ "docker.service" "docker.socket" ];
++      script = lib.concatStringsSep " " ([
++        "exec ${pkgs.docker}/bin/docker run"
++        "--rm"
++        "--name=${containerName}"
++      ] ++ lib.optional (! isNull container.entrypoint)
++        "--entrypoint=${lib.escapeShellArg container.entrypoint}"
++        ++ (map (v: "-v ${lib.escapeShellArg v}") container.volumes)
++        ++ [
++          (lib.escapeShellArgs container.extraDockerOptions)
++          container.image
++        ]
++      );
++      scriptArgs = lib.escapeShellArgs container.args;
++      preStop = "${pkgs.docker}/bin/docker stop ${containerName}";
++      reload = "${pkgs.docker}/bin/docker restart ${containerName}";
++      serviceConfig = {
++        ExecStartPre = "-${pkgs.docker}/bin/docker rm -f ${containerName}";
++        ExecStopPost = "-${pkgs.docker}/bin/docker rm -f ${containerName}";
++        TimeoutStartSec = 0;
++        TimeoutStopSec = 120;
++        Restart = "always";
++      };
++    };
++
++in {
++
++  options.docker-containers = mkOption {
++    default = {};
++    type = types.attrsOf (types.submodule dockerContainer);
++    description = "Docker containers to run.";
++  };
++
++  config = {
++    systemd.services = lib.mapAttrs' (n: v: lib.nameValuePair "docker-${n}" (mkService n v)) cfg;
++  };
++
++}
+-- 
+2.19.1
+
+
+From d43974bf897e589dd1851141ed6406b3d34b7057 Mon Sep 17 00:00:00 2001
+From: Benjamin Staffin <benley@gmail.com>
+Date: Mon, 4 Feb 2019 13:58:33 -0500
+Subject: [PATCH 02/12] PR feedback round 1
+
+---
+ nixos/modules/virtualisation/docker-containers.nix | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/nixos/modules/virtualisation/docker-containers.nix b/nixos/modules/virtualisation/docker-containers.nix
+index f3e15ec3600..c6bfe757aee 100644
+--- a/nixos/modules/virtualisation/docker-containers.nix
++++ b/nixos/modules/virtualisation/docker-containers.nix
+@@ -12,14 +12,14 @@ let
+           type = types.str;
+           description = "Docker image to run.";
+         };
+-        args = mkOption {
++        cmd = mkOption {
+           type =  with types; listOf string;
+           default = [];
+-          description = "Args to pass to the image.";
++          description = "Commandline arguments to pass to the image's entrypoint.";
+         };
+         entrypoint = mkOption {
+           type = types.nullOr types.string;
+-          description = "Overwrite the default ENTRYPOINT of the image.";
++          description = "Overwrite the default entrypoint of the image.";
+           default = null;
+         };
+         volumes = mkOption {
+@@ -57,7 +57,7 @@ let
+           container.image
+         ]
+       );
+-      scriptArgs = lib.escapeShellArgs container.args;
++      scriptArgs = lib.escapeShellArgs container.cmd;
+       preStop = "${pkgs.docker}/bin/docker stop ${containerName}";
+       reload = "${pkgs.docker}/bin/docker restart ${containerName}";
+       serviceConfig = {
+@@ -78,7 +78,11 @@ in {
+   };
+ 
+   config = {
++
+     systemd.services = lib.mapAttrs' (n: v: lib.nameValuePair "docker-${n}" (mkService n v)) cfg;
++
++    virtualisation.docker.enable = true;
++
+   };
+ 
+ }
+-- 
+2.19.1
+
+
+From d2f21ed3949ecaffe0c0c7d683a7b2f0d55392f9 Mon Sep 17 00:00:00 2001
+From: Benjamin Staffin <benley@gmail.com>
+Date: Mon, 4 Feb 2019 17:21:42 -0500
+Subject: [PATCH 03/12] docker-containers: add environment, ports, user,
+ workdir options
+
+---
+ .../virtualisation/docker-containers.nix      | 70 ++++++++++++++++---
+ 1 file changed, 59 insertions(+), 11 deletions(-)
+
+diff --git a/nixos/modules/virtualisation/docker-containers.nix b/nixos/modules/virtualisation/docker-containers.nix
+index c6bfe757aee..52d770a2572 100644
+--- a/nixos/modules/virtualisation/docker-containers.nix
++++ b/nixos/modules/virtualisation/docker-containers.nix
+@@ -8,21 +8,58 @@ let
+     { name, config, ... }: {
+ 
+       options = {
++
+         image = mkOption {
+           type = types.str;
+           description = "Docker image to run.";
++          example = "library/hello-world";
+         };
++
+         cmd = mkOption {
+           type =  with types; listOf string;
+           default = [];
+           description = "Commandline arguments to pass to the image's entrypoint.";
+         };
++
+         entrypoint = mkOption {
+-          type = types.nullOr types.string;
++          type = with types; nullOr string;
+           description = "Overwrite the default entrypoint of the image.";
+           default = null;
+         };
++
++        environment = mkOption {
++          type = with types; attrsOf string;
++          default = {};
++          description = "Environment variables to set for this container.";
++          example = {
++            DATABASE_HOST = "db.example.com";
++            DATABASE_PORT = "3306";
++          };
++        };
++
++        ports = mkOption {
++          type = with types; attrsOf string;
++          default = {};
++          description = "Network ports to forward from the host to this container.";
++          example = {
++            "8080" = "9000/tcp";
++          };
++        };
++
++        user = mkOption {
++          type = with types; nullOr string;
++          default = null;
++          description = ''
++            Override the username or UID (and optionally groupname or
++            GID) used in the container.
++          '';
++          example = "nobody:nogroup";
++        };
++
+         volumes = mkOption {
++          # Note: these are "src:dst" lists so it's possible for `src`
++          # to refer to a /nix/store path, and for `dst` to include
++          # mount options.
+           type = with types; listOf string;
+           default = [];
+           description = "List of volumes to attach to this container.";
+@@ -31,6 +68,14 @@ let
+             "/path/on/host:/path/inside/container"
+           ];
+         };
++
++        workdir = mkOption {
++          type = with types; nullOr string;
++          default = null;
++          description = "Override the default working directory for the container.";
++          example = "/var/lib/hello_world";
++        };
++
+         extraDockerOptions = mkOption {
+           type = with types; listOf string;
+           default = [];
+@@ -45,19 +90,22 @@ let
+       wantedBy = [ "multi-user.target" ];
+       after = [ "docker.service" "docker.socket" ];
+       requires = [ "docker.service" "docker.socket" ];
+-      script = lib.concatStringsSep " " ([
++      script = concatStringsSep " \\\n  " ([
+         "exec ${pkgs.docker}/bin/docker run"
+         "--rm"
+         "--name=${containerName}"
+-      ] ++ lib.optional (! isNull container.entrypoint)
+-        "--entrypoint=${lib.escapeShellArg container.entrypoint}"
+-        ++ (map (v: "-v ${lib.escapeShellArg v}") container.volumes)
+-        ++ [
+-          (lib.escapeShellArgs container.extraDockerOptions)
+-          container.image
+-        ]
++      ] ++ optional (! isNull container.entrypoint)
++        "--entrypoint=${escapeShellArg container.entrypoint}"
++        ++ (mapAttrsToList (k: v: "-e ${escapeShellArg k}=${escapeShellArg v}") container.environment)
++        ++ (mapAttrsToList (k: v: "-p ${escapeShellArg k}:${escapeShellArg v}") container.ports)
++        ++ optional (! isNull container.user) "-u ${escapeShellArg container.user}"
++        ++ (map (v: "-v ${escapeShellArg v}") container.volumes)
++        ++ optional (! isNull container.workdir) "-w ${escapeShellArg container.workdir}"
++        # I know escapeShellArgs exists; this results in prettier output
++        ++ map escapeShellArg container.extraDockerOptions
++        ++ [container.image]
+       );
+-      scriptArgs = lib.escapeShellArgs container.cmd;
++      scriptArgs = escapeShellArgs container.cmd;
+       preStop = "${pkgs.docker}/bin/docker stop ${containerName}";
+       reload = "${pkgs.docker}/bin/docker restart ${containerName}";
+       serviceConfig = {
+@@ -79,7 +127,7 @@ in {
+ 
+   config = {
+ 
+-    systemd.services = lib.mapAttrs' (n: v: lib.nameValuePair "docker-${n}" (mkService n v)) cfg;
++    systemd.services = mapAttrs' (n: v: nameValuePair "docker-${n}" (mkService n v)) cfg;
+ 
+     virtualisation.docker.enable = true;
+ 
+-- 
+2.19.1
+
+
+From f4f0bb424c2618532d8115dc77e54ff3ce842e4f Mon Sep 17 00:00:00 2001
+From: Benjamin Staffin <benley@gmail.com>
+Date: Mon, 4 Feb 2019 17:44:05 -0500
+Subject: [PATCH 04/12] docker-containers: log-driver, string->str, line
+ wrapping
+
+---
+ .../virtualisation/docker-containers.nix      | 32 +++++++++++++------
+ 1 file changed, 22 insertions(+), 10 deletions(-)
+
+diff --git a/nixos/modules/virtualisation/docker-containers.nix b/nixos/modules/virtualisation/docker-containers.nix
+index 52d770a2572..63cf1f0656f 100644
+--- a/nixos/modules/virtualisation/docker-containers.nix
++++ b/nixos/modules/virtualisation/docker-containers.nix
+@@ -16,19 +16,19 @@ let
+         };
+ 
+         cmd = mkOption {
+-          type =  with types; listOf string;
++          type =  with types; listOf str;
+           default = [];
+           description = "Commandline arguments to pass to the image's entrypoint.";
+         };
+ 
+         entrypoint = mkOption {
+-          type = with types; nullOr string;
++          type = with types; nullOr str;
+           description = "Overwrite the default entrypoint of the image.";
+           default = null;
+         };
+ 
+         environment = mkOption {
+-          type = with types; attrsOf string;
++          type = with types; attrsOf str;
+           default = {};
+           description = "Environment variables to set for this container.";
+           example = {
+@@ -37,8 +37,19 @@ let
+           };
+         };
+ 
++        log-driver = mkOption {
++          type = types.str;
++          default = "none";
++          description = ''
++            Logging driver for the container.  The default of "none" means that
++            the container's logs will be handled as part of the systemd unit.
++            Setting this to "journald" will result in duplicate logging, but
++            the container's logs will be visible to the `docker logs` command.
++          '';
++        };
++
+         ports = mkOption {
+-          type = with types; attrsOf string;
++          type = with types; attrsOf str;
+           default = {};
+           description = "Network ports to forward from the host to this container.";
+           example = {
+@@ -47,11 +58,11 @@ let
+         };
+ 
+         user = mkOption {
+-          type = with types; nullOr string;
++          type = with types; nullOr str;
+           default = null;
+           description = ''
+-            Override the username or UID (and optionally groupname or
+-            GID) used in the container.
++            Override the username or UID (and optionally groupname or GID) used
++            in the container.
+           '';
+           example = "nobody:nogroup";
+         };
+@@ -60,7 +71,7 @@ let
+           # Note: these are "src:dst" lists so it's possible for `src`
+           # to refer to a /nix/store path, and for `dst` to include
+           # mount options.
+-          type = with types; listOf string;
++          type = with types; listOf str;
+           default = [];
+           description = "List of volumes to attach to this container.";
+           example = [
+@@ -70,14 +81,14 @@ let
+         };
+ 
+         workdir = mkOption {
+-          type = with types; nullOr string;
++          type = with types; nullOr str;
+           default = null;
+           description = "Override the default working directory for the container.";
+           example = "/var/lib/hello_world";
+         };
+ 
+         extraDockerOptions = mkOption {
+-          type = with types; listOf string;
++          type = with types; listOf str;
+           default = [];
+           description = "Extra options for `docker run`.";
+           example = ["--network=host"];
+@@ -94,6 +105,7 @@ let
+         "exec ${pkgs.docker}/bin/docker run"
+         "--rm"
+         "--name=${containerName}"
++        "--log-driver=${container.log-driver}"
+       ] ++ optional (! isNull container.entrypoint)
+         "--entrypoint=${escapeShellArg container.entrypoint}"
+         ++ (mapAttrsToList (k: v: "-e ${escapeShellArg k}=${escapeShellArg v}") container.environment)
+-- 
+2.19.1
+
+
+From 33c1e31da285f0bc7d8b9d521b97b627f6dfc465 Mon Sep 17 00:00:00 2001
+From: Benjamin Staffin <benley@gmail.com>
+Date: Mon, 4 Feb 2019 19:04:55 -0500
+Subject: [PATCH 05/12] ExecStart instead of script wrapper, %n for container
+ name
+
+---
+ .../virtualisation/docker-containers.nix      | 36 +++++++++----------
+ 1 file changed, 17 insertions(+), 19 deletions(-)
+
+diff --git a/nixos/modules/virtualisation/docker-containers.nix b/nixos/modules/virtualisation/docker-containers.nix
+index 63cf1f0656f..98b68efb29d 100644
+--- a/nixos/modules/virtualisation/docker-containers.nix
++++ b/nixos/modules/virtualisation/docker-containers.nix
+@@ -96,15 +96,15 @@ let
+       };
+     };
+ 
+-  mkService = name: container:
+-    let containerName = "nixos-${name}"; in {
+-      wantedBy = [ "multi-user.target" ];
+-      after = [ "docker.service" "docker.socket" ];
+-      requires = [ "docker.service" "docker.socket" ];
+-      script = concatStringsSep " \\\n  " ([
+-        "exec ${pkgs.docker}/bin/docker run"
++  mkService = name: container: {
++    wantedBy = [ "multi-user.target" ];
++    after = [ "docker.service" "docker.socket" ];
++    requires = [ "docker.service" "docker.socket" ];
++    serviceConfig = {
++      ExecStart = concatStringsSep " \\\n  " ([
++        "${pkgs.docker}/bin/docker run"
+         "--rm"
+-        "--name=${containerName}"
++        "--name=%n"
+         "--log-driver=${container.log-driver}"
+       ] ++ optional (! isNull container.entrypoint)
+         "--entrypoint=${escapeShellArg container.entrypoint}"
+@@ -113,21 +113,19 @@ let
+         ++ optional (! isNull container.user) "-u ${escapeShellArg container.user}"
+         ++ (map (v: "-v ${escapeShellArg v}") container.volumes)
+         ++ optional (! isNull container.workdir) "-w ${escapeShellArg container.workdir}"
+-        # I know escapeShellArgs exists; this results in prettier output
+         ++ map escapeShellArg container.extraDockerOptions
+         ++ [container.image]
++        ++ map escapeShellArg container.cmd
+       );
+-      scriptArgs = escapeShellArgs container.cmd;
+-      preStop = "${pkgs.docker}/bin/docker stop ${containerName}";
+-      reload = "${pkgs.docker}/bin/docker restart ${containerName}";
+-      serviceConfig = {
+-        ExecStartPre = "-${pkgs.docker}/bin/docker rm -f ${containerName}";
+-        ExecStopPost = "-${pkgs.docker}/bin/docker rm -f ${containerName}";
+-        TimeoutStartSec = 0;
+-        TimeoutStopSec = 120;
+-        Restart = "always";
+-      };
++      ExecStartPre = "-${pkgs.docker}/bin/docker rm -f %n";
++      ExecStop = "${pkgs.docker}/bin/docker stop %n";
++      ExecStopPost = "-${pkgs.docker}/bin/docker rm -f %n";
++      ExecReload = "${pkgs.docker}/bin/docker restart %n";
++      TimeoutStartSec = 0;
++      TimeoutStopSec = 120;
++      Restart = "always";
+     };
++  };
+ 
+ in {
+ 
+-- 
+2.19.1
+
+
+From 12cda8699fe858447fbea500604e3d94c0cf94f5 Mon Sep 17 00:00:00 2001
+From: Benjamin Staffin <benley@gmail.com>
+Date: Mon, 4 Feb 2019 19:33:34 -0500
+Subject: [PATCH 06/12] PR feedback: better description and example formatting
+
+---
+ .../virtualisation/docker-containers.nix      | 65 ++++++++++++++-----
+ 1 file changed, 47 insertions(+), 18 deletions(-)
+
+diff --git a/nixos/modules/virtualisation/docker-containers.nix b/nixos/modules/virtualisation/docker-containers.nix
+index 98b68efb29d..3e3a1cdab3f 100644
+--- a/nixos/modules/virtualisation/docker-containers.nix
++++ b/nixos/modules/virtualisation/docker-containers.nix
+@@ -19,32 +19,44 @@ let
+           type =  with types; listOf str;
+           default = [];
+           description = "Commandline arguments to pass to the image's entrypoint.";
++          literalExample = ''
++            ["--port=9000"]
++          '';
+         };
+ 
+         entrypoint = mkOption {
+           type = with types; nullOr str;
+           description = "Overwrite the default entrypoint of the image.";
+           default = null;
++          example = "/bin/my-app";
+         };
+ 
+         environment = mkOption {
+           type = with types; attrsOf str;
+           default = {};
+           description = "Environment variables to set for this container.";
+-          example = {
+-            DATABASE_HOST = "db.example.com";
+-            DATABASE_PORT = "3306";
+-          };
++          literalExample = ''
++            {
++              DATABASE_HOST = "db.example.com";
++              DATABASE_PORT = "3306";
++            }
++        '';
+         };
+ 
+         log-driver = mkOption {
+           type = types.str;
+           default = "none";
+           description = ''
+-            Logging driver for the container.  The default of "none" means that
+-            the container's logs will be handled as part of the systemd unit.
+-            Setting this to "journald" will result in duplicate logging, but
+-            the container's logs will be visible to the `docker logs` command.
++            Logging driver for the container.  The default of
++            <literal>"none"</literal> means that the container's logs will be
++            handled as part of the systemd unit.  Setting this to
++            <literal>"journald"</literal> will result in duplicate logging, but
++            the container's logs will be visible to the <command>docker
++            logs</command> command.
++
++            For more details and a full list of logging drivers, refer to the
++            <a href="https://docs.docker.com/engine/reference/run/#logging-drivers---log-driver">
++            Docker engine documentation</a>
+           '';
+         };
+ 
+@@ -52,9 +64,12 @@ let
+           type = with types; attrsOf str;
+           default = {};
+           description = "Network ports to forward from the host to this container.";
+-          example = {
+-            "8080" = "9000/tcp";
+-          };
++          literalExample = ''
++            {
++              # "port_on_host" = "port_in_container"
++              "8080" = "9000/tcp";
++            }
++          '';
+         };
+ 
+         user = mkOption {
+@@ -73,11 +88,23 @@ let
+           # mount options.
+           type = with types; listOf str;
+           default = [];
+-          description = "List of volumes to attach to this container.";
+-          example = [
+-            "volume_name:/path/inside/container"
+-            "/path/on/host:/path/inside/container"
+-          ];
++          description = ''
++            List of volumes to attach to this container.
++
++            Note that this is a list of <literal>"src:dst"</literal> strings to
++            allow for <literal>src</literal> to refer to
++            <literal>/nix/store</literal> paths, which would difficult with an
++            attribute set.  There are also a variety of mount options available
++            as a third field; please refer to the
++            <a href="https://docs.docker.com/engine/reference/run/#volume-shared-filesystems">
++            docker engine documentation</a> for details.
++          '';
++          literalExample = ''
++            [
++              "volume_name:/path/inside/container"
++              "/path/on/host:/path/inside/container"
++            ]
++          '';
+         };
+ 
+         workdir = mkOption {
+@@ -90,8 +117,10 @@ let
+         extraDockerOptions = mkOption {
+           type = with types; listOf str;
+           default = [];
+-          description = "Extra options for `docker run`.";
+-          example = ["--network=host"];
++          description = "Extra options for <command>docker run</command>.";
++          literalExample = ''
++            ["--network=host"]
++          '';
+         };
+       };
+     };
+-- 
+2.19.1
+
+
+From 2bdaa5e02023e6239cd3923f7f88463a5d9ce01f Mon Sep 17 00:00:00 2001
+From: Benjamin Staffin <benley@gmail.com>
+Date: Mon, 4 Feb 2019 19:52:51 -0500
+Subject: [PATCH 07/12] Fix docbook formatting (oops)
+
+---
+ .../virtualisation/docker-containers.nix      | 21 ++++++++-----------
+ 1 file changed, 9 insertions(+), 12 deletions(-)
+
+diff --git a/nixos/modules/virtualisation/docker-containers.nix b/nixos/modules/virtualisation/docker-containers.nix
+index 3e3a1cdab3f..aca379eb2cf 100644
+--- a/nixos/modules/virtualisation/docker-containers.nix
++++ b/nixos/modules/virtualisation/docker-containers.nix
+@@ -19,7 +19,7 @@ let
+           type =  with types; listOf str;
+           default = [];
+           description = "Commandline arguments to pass to the image's entrypoint.";
+-          literalExample = ''
++          example = literalExample ''
+             ["--port=9000"]
+           '';
+         };
+@@ -35,7 +35,7 @@ let
+           type = with types; attrsOf str;
+           default = {};
+           description = "Environment variables to set for this container.";
+-          literalExample = ''
++          example = literalExample ''
+             {
+               DATABASE_HOST = "db.example.com";
+               DATABASE_PORT = "3306";
+@@ -55,8 +55,8 @@ let
+             logs</command> command.
+ 
+             For more details and a full list of logging drivers, refer to the
+-            <a href="https://docs.docker.com/engine/reference/run/#logging-drivers---log-driver">
+-            Docker engine documentation</a>
++            <link xlink:href="https://docs.docker.com/engine/reference/run/#logging-drivers---log-driver">
++            Docker engine documentation</link>
+           '';
+         };
+ 
+@@ -64,7 +64,7 @@ let
+           type = with types; attrsOf str;
+           default = {};
+           description = "Network ports to forward from the host to this container.";
+-          literalExample = ''
++          example = literalExample ''
+             {
+               # "port_on_host" = "port_in_container"
+               "8080" = "9000/tcp";
+@@ -83,9 +83,6 @@ let
+         };
+ 
+         volumes = mkOption {
+-          # Note: these are "src:dst" lists so it's possible for `src`
+-          # to refer to a /nix/store path, and for `dst` to include
+-          # mount options.
+           type = with types; listOf str;
+           default = [];
+           description = ''
+@@ -96,10 +93,10 @@ let
+             <literal>/nix/store</literal> paths, which would difficult with an
+             attribute set.  There are also a variety of mount options available
+             as a third field; please refer to the
+-            <a href="https://docs.docker.com/engine/reference/run/#volume-shared-filesystems">
+-            docker engine documentation</a> for details.
++            <link xlink:href="https://docs.docker.com/engine/reference/run/#volume-shared-filesystems">
++            docker engine documentation</link> for details.
+           '';
+-          literalExample = ''
++          example = literalExample ''
+             [
+               "volume_name:/path/inside/container"
+               "/path/on/host:/path/inside/container"
+@@ -118,7 +115,7 @@ let
+           type = with types; listOf str;
+           default = [];
+           description = "Extra options for <command>docker run</command>.";
+-          literalExample = ''
++          example = literalExample ''
+             ["--network=host"]
+           '';
+         };
+-- 
+2.19.1
+
+
+From ce835a7096db58cb2f7430a46194dc6523eb48ed Mon Sep 17 00:00:00 2001
+From: Benjamin Staffin <benley@gmail.com>
+Date: Mon, 4 Feb 2019 20:21:36 -0500
+Subject: [PATCH 08/12] Use a list of strings for ports, expand documentation
+
+---
+ .../virtualisation/docker-containers.nix      | 63 ++++++++++++++++---
+ 1 file changed, 54 insertions(+), 9 deletions(-)
+
+diff --git a/nixos/modules/virtualisation/docker-containers.nix b/nixos/modules/virtualisation/docker-containers.nix
+index aca379eb2cf..0fd41fb78ec 100644
+--- a/nixos/modules/virtualisation/docker-containers.nix
++++ b/nixos/modules/virtualisation/docker-containers.nix
+@@ -61,14 +61,59 @@ let
+         };
+ 
+         ports = mkOption {
+-          type = with types; attrsOf str;
+-          default = {};
+-          description = "Network ports to forward from the host to this container.";
++          type = with types; listOf str;
++          default = [];
++          description = ''
++            Network ports to publish from the container to the outer host.
++            </para>
++            <para>
++            Valid formats:
++            </para>
++            <itemizedlist>
++              <listitem>
++                <para>
++                  <literal>&lt;ip&gt;:&lt;hostPort&gt;:&lt;containerPort&gt;</literal>
++                </para>
++              </listitem>
++              <listitem>
++                <para>
++                  <literal>&lt;ip&gt;::&lt;containerPort&gt;</literal>
++                </para>
++              </listitem>
++              <listitem>
++                <para>
++                  <literal>&lt;hostPort&gt;:&lt;containerPort&gt;</literal>
++                </para>
++              </listitem>
++              <listitem>
++                <para>
++                  <literal>&lt;containerPort&gt;</literal>
++                </para>
++              </listitem>
++            </itemizedlist>
++            <para>
++            Both <literal>hostPort</literal> and
++            <literal>containerPort</literal> can be specified as a range of
++            ports.  When specifying ranges for both, the number of container
++            ports in the range must match the number of host ports in the
++            range.  Example: <literal>1234-1236:1234-1236/tcp</literal>
++            </para>
++            <para>
++            When specifying a range for <literal>hostPort</literal> only, the
++            <literal>containerPort</literal> must <emphasis>not</emphasis> be a
++            range.  In this case, the container port is published somewhere
++            within the specified <literal>hostPort</literal> range.  Example:
++            <literal>1234-1236:1234/tcp</literal>
++            </para>
++            <para>
++            Refer to the
++            <link xlink:href="https://docs.docker.com/engine/reference/run/#expose-incoming-ports">
++            Docker engine documentation</link> for full details.
++          '';
+           example = literalExample ''
+-            {
+-              # "port_on_host" = "port_in_container"
+-              "8080" = "9000/tcp";
+-            }
++            [
++              "8080:9000"
++            ]
+           '';
+         };
+ 
+@@ -135,9 +180,9 @@ let
+       ] ++ optional (! isNull container.entrypoint)
+         "--entrypoint=${escapeShellArg container.entrypoint}"
+         ++ (mapAttrsToList (k: v: "-e ${escapeShellArg k}=${escapeShellArg v}") container.environment)
+-        ++ (mapAttrsToList (k: v: "-p ${escapeShellArg k}:${escapeShellArg v}") container.ports)
++        ++ map (p: "-p ${escapeShellArg p}") container.ports
+         ++ optional (! isNull container.user) "-u ${escapeShellArg container.user}"
+-        ++ (map (v: "-v ${escapeShellArg v}") container.volumes)
++        ++ map (v: "-v ${escapeShellArg v}") container.volumes
+         ++ optional (! isNull container.workdir) "-w ${escapeShellArg container.workdir}"
+         ++ map escapeShellArg container.extraDockerOptions
+         ++ [container.image]
+-- 
+2.19.1
+
+
+From 2dc1908140816641ed2cb983b06378458d60dced Mon Sep 17 00:00:00 2001
+From: Benjamin Staffin <benley@gmail.com>
+Date: Sat, 9 Feb 2019 01:48:45 -0500
+Subject: [PATCH 09/12] docker-continers: add a simple nixos test
+
+---
+ nixos/tests/all-tests.nix         |  1 +
+ nixos/tests/docker-containers.nix | 29 +++++++++++++++++++++++++++++
+ 2 files changed, 30 insertions(+)
+ create mode 100644 nixos/tests/docker-containers.nix
+
+diff --git a/nixos/tests/all-tests.nix b/nixos/tests/all-tests.nix
+index a1cdcf83988..f1f229e2d5f 100644
+--- a/nixos/tests/all-tests.nix
++++ b/nixos/tests/all-tests.nix
+@@ -57,6 +57,7 @@ in
+   dhparams = handleTest ./dhparams.nix {};
+   dnscrypt-proxy = handleTestOn ["x86_64-linux"] ./dnscrypt-proxy.nix {};
+   docker = handleTestOn ["x86_64-linux"] ./docker.nix {};
++  docker-containers = handleTestOn ["x86_64-linux"] ./docker-containers.nix {};
+   docker-edge = handleTestOn ["x86_64-linux"] ./docker-edge.nix {};
+   docker-preloader = handleTestOn ["x86_64-linux"] ./docker-preloader.nix {};
+   docker-registry = handleTest ./docker-registry.nix {};
+diff --git a/nixos/tests/docker-containers.nix b/nixos/tests/docker-containers.nix
+new file mode 100644
+index 00000000000..f54de916aac
+--- /dev/null
++++ b/nixos/tests/docker-containers.nix
+@@ -0,0 +1,29 @@
++# Test Docker containers as systemd units
++
++import ./make-test.nix ({ pkgs, lib, ... }: {
++  name = "docker-containers";
++  meta = {
++    maintainers = with lib.maintainers; [ benley ];
++  };
++
++  nodes = {
++    docker = { pkgs, ... }:
++      {
++        virtualisation.docker.enable = true;
++
++        virtualisation.dockerPreloader.images = [ pkgs.dockerTools.examples.nginx ];
++
++        docker-containers.nginx = {
++          image = "nginx-container";
++          ports = ["8181:80"];
++        };
++      };
++  };
++
++  testScript = ''
++    startAll;
++    $docker->waitForUnit("docker-nginx.service");
++    $docker->waitForOpenPort(8181);
++    $docker->succeed("curl http://localhost:8181|grep Hello");
++  '';
++})
+-- 
+2.19.1
+
+
+From 4d245c86efc8814c3c38a7dc0774fc966c8d00a8 Mon Sep 17 00:00:00 2001
+From: Benjamin Staffin <benley@gmail.com>
+Date: Fri, 15 Feb 2019 19:53:44 -0500
+Subject: [PATCH 10/12] waitUntilSucceeds to avoid potential weird async issues
+
+---
+ nixos/modules/virtualisation/docker-containers.nix | 2 +-
+ nixos/tests/docker-containers.nix                  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/nixos/modules/virtualisation/docker-containers.nix b/nixos/modules/virtualisation/docker-containers.nix
+index 0fd41fb78ec..3d0c905911c 100644
+--- a/nixos/modules/virtualisation/docker-containers.nix
++++ b/nixos/modules/virtualisation/docker-containers.nix
+@@ -203,7 +203,7 @@ in {
+   options.docker-containers = mkOption {
+     default = {};
+     type = types.attrsOf (types.submodule dockerContainer);
+-    description = "Docker containers to run.";
++    description = "Docker containers to run as systemd services.";
+   };
+ 
+   config = {
+diff --git a/nixos/tests/docker-containers.nix b/nixos/tests/docker-containers.nix
+index f54de916aac..97255273520 100644
+--- a/nixos/tests/docker-containers.nix
++++ b/nixos/tests/docker-containers.nix
+@@ -24,6 +24,6 @@ import ./make-test.nix ({ pkgs, lib, ... }: {
+     startAll;
+     $docker->waitForUnit("docker-nginx.service");
+     $docker->waitForOpenPort(8181);
+-    $docker->succeed("curl http://localhost:8181|grep Hello");
++    $docker->waitUntilSucceeds("curl http://localhost:8181|grep Hello");
+   '';
+ })
+-- 
+2.19.1
+
+
+From 08ef0021bd99783b6af2e8c23ef11b135e09c013 Mon Sep 17 00:00:00 2001
+From: Benjamin Staffin <benley@gmail.com>
+Date: Tue, 12 Mar 2019 21:09:08 -0400
+Subject: [PATCH 11/12] Don't enable docker daemon unless we actually need it
+
+---
+ nixos/modules/virtualisation/docker-containers.nix | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/nixos/modules/virtualisation/docker-containers.nix b/nixos/modules/virtualisation/docker-containers.nix
+index 3d0c905911c..5a8d02c2155 100644
+--- a/nixos/modules/virtualisation/docker-containers.nix
++++ b/nixos/modules/virtualisation/docker-containers.nix
+@@ -206,7 +206,7 @@ in {
+     description = "Docker containers to run as systemd services.";
+   };
+ 
+-  config = {
++  config = mkIf (cfg != []) {
+ 
+     systemd.services = mapAttrs' (n: v: nameValuePair "docker-${n}" (mkService n v)) cfg;
+ 
+-- 
+2.19.1
+
+
+From 258d05d543fb03c6785da46b6893de14ced84266 Mon Sep 17 00:00:00 2001
+From: Benjamin Staffin <benley@gmail.com>
+Date: Mon, 18 Mar 2019 14:16:35 -0400
+Subject: [PATCH 12/12] PR feedback: leave ExecReload undefined
+
+---
+ .../virtualisation/docker-containers.nix       | 18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/nixos/modules/virtualisation/docker-containers.nix b/nixos/modules/virtualisation/docker-containers.nix
+index 5a8d02c2155..7cf871cc3ba 100644
+--- a/nixos/modules/virtualisation/docker-containers.nix
++++ b/nixos/modules/virtualisation/docker-containers.nix
+@@ -191,7 +191,23 @@ let
+       ExecStartPre = "-${pkgs.docker}/bin/docker rm -f %n";
+       ExecStop = "${pkgs.docker}/bin/docker stop %n";
+       ExecStopPost = "-${pkgs.docker}/bin/docker rm -f %n";
+-      ExecReload = "${pkgs.docker}/bin/docker restart %n";
++
++      ### There is no generalized way of supporting `reload` for docker
++      ### containers. Some containers may respond well to SIGHUP sent to their
++      ### init process, but it is not guaranteed; some apps have other reload
++      ### mechanisms, some don't have a reload signal at all, and some docker
++      ### images just have broken signal handling.  The best compromise in this
++      ### case is probably to leave ExecReload undefined, so `systemctl reload`
++      ### will at least result in an error instead of potentially undefined
++      ### behaviour.
++      ###
++      ### Advanced users can still override this part of the unit to implement
++      ### a custom reload handler, since the result of all this is a normal
++      ### systemd service from the perspective of the NixOS module system.
++      ###
++      # ExecReload = ...;
++      ###
++
+       TimeoutStartSec = 0;
+       TimeoutStopSec = 120;
+       Restart = "always";
+-- 
+2.19.1
+

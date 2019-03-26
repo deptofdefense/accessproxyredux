@@ -1,0 +1,27 @@
+package ap.acl
+
+loaded = "loaded"
+
+default authorize = false
+
+# User exists and no acl for Host 
+authorize = true {
+    data.users[_].name = input.CommonName
+    [ hid | data.acls[hid].host = input.Host ]
+}
+
+# User/Host exists and no acl for path. 
+authorize = true {
+  data.users[_].name = input.CommonName
+  data.acls[idx].host = input.Host
+  [ rid | startswith(input.Uri, data.acls[idx].rules[rid].path)] == []
+}
+
+# User has the role assigned to the acl.path prefix.
+authorize = true {
+  data.acls[aid].host = input.Host
+  startswith(input.Uri, data.acls[aid].rules[rid].path)
+  data.users[uid].name = input.CommonName
+  data.acls[aid].rules[rid].role = data.users[uid].roles[_]
+  
+}
