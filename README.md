@@ -23,7 +23,7 @@ Requirements:
 5. `secrets/cert.pem` default cert used for testing and fallback
 6. `secrets/key.pem` default cert used for testing and fallback
 
-Buiding the machines is easiest on a Linux machine. If on OSX, easiest is to use a remove builder, but this is not recommended without some Nix experience.  Information available [here](https://github.com/LnL7/nix-docker).  If you have docker:
+Buiding the machines is easiest on a Linux machine. If on OSX, easiest is to use a remote builder, but this is not recommended without some Nix experience.  Information available [here](https://github.com/LnL7/nix-docker).  If you have docker:
 ```bash
 source <(curl -fsSL https://raw.githubusercontent.com/LnL7/nix-docker/master/start-docker-nix-build-slave)
 ```
@@ -32,7 +32,7 @@ source <(curl -fsSL https://raw.githubusercontent.com/LnL7/nix-docker/master/sta
 This creates a directory `local` containing a statefile and config.
 ```bash
 make local create
-cp config.virtualbox.nix local/.
+cp config.virtualbox.nix local/config.nix
 make local deploy
 ```
 
