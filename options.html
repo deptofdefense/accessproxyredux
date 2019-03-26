@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>Appendix A. Configuration Options</title><link rel="stylesheet" type="text/css" href="/nix/store/fi0w3msyy982han8yqlb0pn6ffzwc04p-nixops-1.6.1/share/doc/nixops/style.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.79.1" /></head><body><div class="appendix"><div class="titlepage"><div><div><h2 class="title"><a id="appendix-configuration-options"></a>Appendix A. Configuration Options</h2></div></div></div><div class="variablelist"><a id="configuration-variable-list"></a><dl class="variablelist"><dt><span class="term"><a id="opt-common.email"></a><a class="term" href="#opt-common.email"><code class="option">common.email</code></a></span></dt><dd><p>Email contact for various things like Let's Encrypt</p><p><span class="emphasis"><em>Type:</em></span> string</p><p><span class="emphasis"><em>Default:</em></span> <code class="literal">
+        null
+      </code></p><p><span class="emphasis"><em>Example:</em></span> <code class="literal">
+        "dev@example.com"
+      </code></p><p><span class="emphasis"><em>Declared by:</em></span></p><table border="0" summary="Simple list" class="simplelist"><tr><td><code class="filename"><a class="filename" href="file://./src/modules/common.nix" target="_top">./src/modules/common.nix</a></code></td></tr></table></dd><dt><span class="term"><a id="opt-common.instances"></a><a class="term" href="#opt-common.instances"><code class="option">common.instances</code></a></span></dt><dd><p>Instance settings</p><p><span class="emphasis"><em>Type:</em></span> attribute set of submodules</p><p><span class="emphasis"><em>Default:</em></span> <code class="literal">
+        
+    {
+    
+    }
+  
+      </code></p><p><span class="emphasis"><em>Example:</em></span> <code class="literal">
+        
+    {
+    
+    }
+  
+      </code></p><p><span class="emphasis"><em>Declared by:</em></span></p><table border="0" summary="Simple list" class="simplelist"><tr><td><code class="filename"><a class="filename" href="file://./src/modules/common.nix" target="_top">./src/modules/common.nix</a></code></td></tr></table></dd><dt><span class="term"><a id="opt-common.instances._name_.acmeServer"></a><a class="term" href="#opt-common.instances._name_.acmeServer"><code class="option">common.instances.&lt;name&gt;.acmeServer</code></a></span></dt><dd><p>AMCE server</p><p><span class="emphasis"><em>Type:</em></span> string</p><p><span class="emphasis"><em>Default:</em></span> <code class="literal">
+        "https://acme-v02.api.letsencrypt.org/directory"
+      </code></p><p><span class="emphasis"><em>Example:</em></span> <code class="literal">
+        "https://acme-staging-v02.api.letsencrypt.org/directory"
+      </code></p><p><span class="emphasis"><em>Declared by:</em></span></p><table border="0" summary="Simple list" class="simplelist"><tr><td><code class="filename"><a class="filename" href="file://./src/modules/common.nix" target="_top">./src/modules/common.nix</a></code></td></tr></table></dd><dt><span class="term"><a id="opt-common.instances._name_.ec2"></a><a class="term" href="#opt-common.instances._name_.ec2"><code class="option">common.instances.&lt;name&gt;.ec2</code></a></span></dt><dd><p>AWS options. See nixops manual for further info</p><p><span class="emphasis"><em>Type:</em></span> null or attribute set</p><p><span class="emphasis"><em>Default:</em></span> <code class="literal">
+        
+    {
+    
+    }
+  
+      </code></p><p><span class="emphasis"><em>Example:</em></span> <code class="literal">
+        
+    {
+    accessKeyId = "AKAISDFJKLSDFSDSDLF"; ami = "ami-5d24aa3c"; instanceType = "t2.medium"; region = "us-gov-west-1"; zone = "us-gov-west-1b"; 
+    }
+  
+      </code></p><p><span class="emphasis"><em>Declared by:</em></span></p><table border="0" summary="Simple list" class="simplelist"><tr><td><code class="filename"><a class="filename" href="file://./src/modules/common.nix" target="_top">./src/modules/common.nix</a></code></td></tr></table></dd><dt><span class="term"><a id="opt-common.instances._name_.extraConfig"></a><a class="term" href="#opt-common.instances._name_.extraConfig"><code class="option">common.instances.&lt;name&gt;.extraConfig</code></a></span></dt><dd><p>NixOS common options. See nixos manual for further info</p><p><span class="emphasis"><em>Type:</em></span> null or attribute set</p><p><span class="emphasis"><em>Default:</em></span> <code class="literal">
+        
+    {
+    
+    }
+  
+      </code></p><p><span class="emphasis"><em>Example:</em></span> <code class="literal">
+        
+    {
+    users = 
+    {
+    users = 
+    {
+    root = 
+    {
+    openssh = 
+    {
+    authorizedKeys = 
+    {
+    keyFiles = 
+    [
+    
+    ]
+  ; 
+    }
+  ; 
+    }
+  ; 
+    }
+  ; 
+    }
+  ; 
+    }
+  ; 
+    }
+  
+      </code></p><p><span class="emphasis"><em>Declared by:</em></span></p><table border="0" summary="Simple list" class="simplelist"><tr><td><code class="filename"><a class="filename" href="file://./src/modules/common.nix" target="_top">./src/modules/common.nix</a></code></td></tr></table></dd><dt><span class="term"><a id="opt-common.instances._name_.gce"></a><a class="term" href="#opt-common.instances._name_.gce"><code class="option">common.instances.&lt;name&gt;.gce</code></a></span></dt><dd><p>GCE options. See nixops manual for further info</p><p><span class="emphasis"><em>Type:</em></span> null or attribute set</p><p><span class="emphasis"><em>Default:</em></span> <code class="literal">
+        
+    {
+    
+    }
+  
+      </code></p><p><span class="emphasis"><em>Example:</em></span> <code class="literal">
+        
+    {
+    headless = true; memorySixe = 1024; vcpu = 2; 
+    }
+  
+      </code></p><p><span class="emphasis"><em>Declared by:</em></span></p><table border="0" summary="Simple list" class="simplelist"><tr><td><code class="filename"><a class="filename" href="file://./src/modules/common.nix" target="_top">./src/modules/common.nix</a></code></td></tr></table></dd><dt><span class="term"><a id="opt-common.instances._name_.hostname"></a><a class="term" href="#opt-common.instances._name_.hostname"><code class="option">common.instances.&lt;name&gt;.hostname</code></a></span></dt><dd><p>Hostname to use for Let's Encrypt, ACE, and service</p><p><span class="emphasis"><em>Type:</em></span> string</p><p><span class="emphasis"><em>Default:</em></span> <code class="literal">
+        null
+      </code></p><p><span class="emphasis"><em>Example:</em></span> <code class="literal">
+        "example.com"
+      </code></p><p><span class="emphasis"><em>Declared by:</em></span></p><table border="0" summary="Simple list" class="simplelist"><tr><td><code class="filename"><a class="filename" href="file://./src/modules/common.nix" target="_top">./src/modules/common.nix</a></code></td></tr></table></dd><dt><span class="term"><a id="opt-common.instances._name_.targetEnv"></a><a class="term" href="#opt-common.instances._name_.targetEnv"><code class="option">common.instances.&lt;name&gt;.targetEnv</code></a></span></dt><dd><p>Platform to use for this instance.</p><p><span class="emphasis"><em>Type:</em></span> string</p><p><span class="emphasis"><em>Default:</em></span> <code class="literal">
+        "virtualbox"
+      </code></p><p><span class="emphasis"><em>Example:</em></span> <code class="literal">
+        "virtualbox"
+      </code></p><p><span class="emphasis"><em>Declared by:</em></span></p><table border="0" summary="Simple list" class="simplelist"><tr><td><code class="filename"><a class="filename" href="file://./src/modules/common.nix" target="_top">./src/modules/common.nix</a></code></td></tr></table></dd><dt><span class="term"><a id="opt-common.instances._name_.virtualbox"></a><a class="term" href="#opt-common.instances._name_.virtualbox"><code class="option">common.instances.&lt;name&gt;.virtualbox</code></a></span></dt><dd><p>Virtualbox options. See nixops manual for further info</p><p><span class="emphasis"><em>Type:</em></span> null or attribute set</p><p><span class="emphasis"><em>Default:</em></span> <code class="literal">
+        
+    {
+    
+    }
+  
+      </code></p><p><span class="emphasis"><em>Example:</em></span> <code class="literal">
+        
+    {
+    headless = true; memorySixe = 1024; vcpu = 2; 
+    }
+  
+      </code></p><p><span class="emphasis"><em>Declared by:</em></span></p><table border="0" summary="Simple list" class="simplelist"><tr><td><code class="filename"><a class="filename" href="file://./src/modules/common.nix" target="_top">./src/modules/common.nix</a></code></td></tr></table></dd><dt><span class="term"><a id="opt-common.instances._name_.wg"></a><a class="term" href="#opt-common.instances._name_.wg"><code class="option">common.instances.&lt;name&gt;.wg</code></a></span></dt><dd><p>Wiregurad IP for instance</p><p><span class="emphasis"><em>Type:</em></span> string</p><p><span class="emphasis"><em>Declared by:</em></span></p><table border="0" summary="Simple list" class="simplelist"><tr><td><code class="filename"><a class="filename" href="file://./src/modules/common.nix" target="_top">./src/modules/common.nix</a></code></td></tr></table></dd><dt><span class="term"><a id="opt-common.resources"></a><a class="term" href="#opt-common.resources"><code class="option">common.resources</code></a></span></dt><dd><p>NixOps resource options. See nixops manual for further info</p><p><span class="emphasis"><em>Type:</em></span> null or attribute set</p><p><span class="emphasis"><em>Default:</em></span> <code class="literal">
+        
+    {
+    
+    }
+  
+      </code></p><p><span class="emphasis"><em>Example:</em></span> <code class="literal">
+        
+    {
+    
+    }
+  
+      </code></p><p><span class="emphasis"><em>Declared by:</em></span></p><table border="0" summary="Simple list" class="simplelist"><tr><td><code class="filename"><a class="filename" href="file://./src/modules/common.nix" target="_top">./src/modules/common.nix</a></code></td></tr></table></dd></dl></div></div></body></html>

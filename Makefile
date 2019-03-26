@@ -54,6 +54,11 @@ $(DEPLOYMENT) : ${DEPS}
 
 doc:
 	NIX_PATH=${NIX_PATH} xdg-open $$(nix-build src/options-doc.nix --no-out-link)
+
+options.html:
+	cp $$(nix-build -I ${NIX_PATH} src/options-doc.nix --no-out-link) options.html
+	sed -i.bak 's#${CURDIR}#.#g' options.html
+	rm options.html.bak
 update:
 	nix-prefetch-git https://github.com/NixOS/nixpkgs.git refs/head/nixos-19.03 > nixpkgs-version.json
 
