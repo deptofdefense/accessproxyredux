@@ -59,7 +59,16 @@ options.html:
 	cp $$(nix-build -I ${NIX_PATH} src/options-doc.nix --no-out-link) options.html
 	sed -i.bak 's#${CURDIR}#.#g' options.html
 	rm options.html.bak
+
 update:
 	nix-prefetch-git https://github.com/NixOS/nixpkgs.git refs/head/nixos-19.03 > nixpkgs-version.json
+
+help:
+	@echo -e "\033[35;1m[*]Usage: make DEPLOYMENT COMMAND"
+	@echo -e "    Will run 'nixops COMMAND' with proper environment"
+	@echo -e "    Example: 'make local ssh office' will SSH into the office machine of the 'local' deployment"
+	@echo -e "    Example: 'make local deploy' will deploy the 'local' environment\033[0m"
+	@echo ""
+	@exec nix-shell -p nixopsUnstable3 --run "nixops --help"
 
 .PRECIOUS : ${DEPLOYMENT}/state.nixops

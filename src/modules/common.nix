@@ -110,14 +110,13 @@ in
     in
     {
 
-    deployment.encryptedLinksTo = ["office"];
-
-    security.pki.certificateFiles = [ ../../public/all.pem ../../secrets/cert.pem];
-    networking.extraHosts = ''
-      ${config.common.instances.office.wg} ${config.common.instances.office.hostname}
-      ${config.common.instances.ace.wg} ${config.common.instances.ace.hostname}
+    networking.extraHosts = with config.common.instances; ''
+      ${office.wg} ${office.hostname}
+      ${ace.wg} ${ace.hostname}
     '';
 
+    boot.extraModulePackages = [ config.boot.kernelPackages.wireguard ];
+    networking.firewall.allowedUDPPorts = [ 51820 ];
     deployment.keys."wg.priv" = let 
       a = resources.output."wg_key_${name}".value;
       in if a == null then {} else {
@@ -155,7 +154,6 @@ in
       headless = true;
     } else {};
 
-    boot.extraModulePackages = [ config.boot.kernelPackages.wireguard ];
     nixpkgs.overlays = [ 
       (import ../overlays/pkgs.nix)
     ];
@@ -163,7 +161,6 @@ in
     networking.firewall.allowedTCPPorts = [22];
     networking.firewall.interfaces."docker0".allowedTCPPorts = [ 80 443 ];
     networking.firewall.interfaces."wg0".allowedTCPPorts = [ 80 443 ];
-    networking.firewall.allowedUDPPorts = [ 51820 ];
     systemd.additionalUpstreamSystemUnits = [ 
       "proc-sys-fs-binfmt_misc.automount"
       "proc-sys-fs-binfmt_misc.mount"

@@ -22,7 +22,6 @@ let
         acme = {
           email = "${config.common.email}";
           entryPoint = "https";
-          #OnHostRule = true;
           storage = "/var/lib/traefik/acme.json";
           caServer = config.common.instances.ace.acmeServer;
           httpChallenge.entryPoint = "http";
@@ -54,13 +53,9 @@ let
             passHostHeader = true;
             entryPoints = [ "https"];
             backend = "office";
-            headers.customrequestheaders = {
-              #Cache-Control = "no-cache";
-              #X-Forwarded-Proto = "https";
-            };
             auth.forward.address = "http://127.0.0.1:9000";
             routes.test_1.rule = "Host: ${config.common.instances.ace.hostname},${config.common.instances.office.hostname}";
-            passTLSClientCert = {
+            passTLSClientCert = { # {{{
               pem = true;
               infos = {
                 notBefore = true;
@@ -84,7 +79,7 @@ let
                   serialNumber = true;
                 };
               };
-            };
+            }; # }}}
           };
         };
         backends.office = {
@@ -177,7 +172,10 @@ let
       config = {
         # Username is actually root
         #overwriteProtocol = "https";
-        extraTrustedDomains = [ "${config.common.instances.ace.wg}" "${config.common.instances.office.wg}" "${config.common.instances.ace.hostname}" "office.${config.common.instances.ace.hostname}"];
+        extraTrustedDomains = [
+          "${config.common.instances.ace.hostname}"
+          "${config.common.instances.office.hostname}"
+        ];
       };
     };
     docker-containers.office = {
@@ -186,7 +184,7 @@ let
       extraDockerOptions= [
         "--add-host=${config.common.instances.ace.hostname}:${config.common.instances.office.wg}"
         "--add-host=${config.common.instances.office.hostname}:127.0.0.1"
-        "-v/etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro"
+        #"-v/etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro"
       ];
       
     };

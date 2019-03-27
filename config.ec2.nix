@@ -1,4 +1,4 @@
-rec {
+{
   resources = {
     output.wg_key_office.script = ''
       wg genkey | tr -d '\n' | tee $out/privatekey | wg pubkey | tr -d '\n' > $out/publickey
