@@ -48,7 +48,7 @@ make local deploy
 
 #### Documents
 ``` bash
-make local doc
+make doc
 ```
 
 ### ONLYOFFICE setup

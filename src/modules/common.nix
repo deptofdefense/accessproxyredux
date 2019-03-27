@@ -169,9 +169,5 @@ in
       "proc-sys-fs-binfmt_misc.mount"
     ];
     
-    users.users.root.openssh.authorizedKeys = { # {{{
-      keyFiles = [ /home/dev/.ssh/id_ecdsa.pub ];
-    }; # }}}
-
   };
 }
