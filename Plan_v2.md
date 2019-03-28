@@ -1,4 +1,4 @@
-## ACE in Nix
+## Migration to NixOS
 
 ### Why this is awesome
 

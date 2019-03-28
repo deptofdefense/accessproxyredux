@@ -4,6 +4,8 @@ Access Proxy is a prototype zero-trust/beyondcorp proxy that uses a few opiniona
  provide a flexible and usable way to authenticate and authorize resource request at the HTTP session
   level.
 
+The project, although now public, is going through an overhaul from the private version we have been using. Our planned work and migration ideas can be found [here][plan]
+
 ## What
 Access Proxy is the integration and packaging of open source tools in a way that allows minimal
  configurations to bootstrap some elements of a beyondcorp style proxy.
@@ -212,3 +214,6 @@ serialNumber = true
 [frontends.office.routes.test_1]
 rule = "Host: example.com,office.example.com"
 ```
+
+
+[plan]: https://github.com/deptofdefense/accessproxyredux/Plan_v2.md
