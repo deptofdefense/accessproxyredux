@@ -1,63 +1,214 @@
-## ACE in Nix
+# Access Proxy
 
-### Why this is awesome
+Access Proxy is a prototype zero-trust/beyondcorp proxy that uses a few opinionated technologies to
+ provide a flexible and usable way to authenticate and authorize resource request at the HTTP session
+  level.
 
-1. Reproducible server in various forms. Update at will. Kill it all and regenerate.
-2. Like Terraform: manages VPC, subnets, elasticIP (unused for now), route tables, security groups, etc.
-3. Updates are transactional and allows for rollback.
-4. ACME/Let's Encrypt for server-side SSL certificates
+## What
+Access Proxy is the integration and packaging of open source tools in a way that allows minimal
+ configurations to bootstrap some elements of a beyondcorp style proxy.
 
-TODO:
-- [ ] [Fail2ban](https://github.com/fail2ban/fail2ban) to quiet the noise of the internet
-- [ ] CRL/OCSP/etc.
-- [ ] Show how to update Nixpkgs and certs.
-- [ ] Remove bootstrap certs
+The v1 version of Access Proxy uses:
 
-### Using
-Requirements:
+  - [Traefik v1.7.9](https://traefik.io/)
 
-1. [nix](https://nixos.org/nix/download.html)
-2. GNU Make
-3. Wireguard-utils
-4. `public/all.pem` of trusted root CAs for clients
-5. `secrets/cert.pem` default cert used for testing and fallback
-6. `secrets/key.pem` default cert used for testing and fallback
+  - [Open Policy Agent](https://www.openpolicyagent.org/)
 
-Buiding the machines is easiest on a Linux machine. If on OSX, easiest is to use a remote builder, but this is not recommended without some Nix experience.  Information available [here](https://github.com/LnL7/nix-docker).  If you have docker:
-```bash
-source <(curl -fsSL https://raw.githubusercontent.com/LnL7/nix-docker/master/start-docker-nix-build-slave)
+  - [Policy Engine](https://github.com/deptofdefense/policyengine)
+
+  - [Vouch Proxy](https://github.com/vouch/vouch-proxy)
+
+  - [Webauthn Demo by Duo](https://github.com/duo-labs/webauthn.io)
+
+  - [NixOS](https://nixos.org/)
+
+  - [Packer](https://www.packer.io/intro/)
+
+## The "So Whats"
+
+
+### Auth
+
+Authentication and Authorization are key pieces of the zero-trust model. For level setting; authentication is attesting to a user identity and authorization is making decision about what an asserted identity can access at any point in time.
+
+Access Proxy splits those two functions apart and utilizes presented information (certs, etc.) and the resulting data from authentication to do the authorization judgement.
+
+#### Authentication
+
+Authentication in Access Proxy is done with the client presented identity attributes at request time. 
+These attributes can include:
+
+  - x509 certificates
+
+  - SSO tokens
+
+  - Webauthn Tokens
+
+Each can be verified by various means by Access Proxy. mTLS is used to validate that an appropriate certificate is being used to access a fronted resource; vouch validates and redirects to an SSO provider, and Webauthn binds a token per sub/domian. 
+
+Of the three pieces, the most important for Access Proxy to handle is mTLS as that is not usually implemented in modern day applications were most of them have SSO hooks where the SSO can do MFA. 
+
+These attributes, and their validation metadata, are passed to the [policy engine](https://github.com/deptofdefense/policyengine) where the attribute tuple is built and evaluated.
+
+#### Authorization -  Policy Engine
+The policy engine is currently based on the [Open Policy Engine](https://www.openpolicyagent.org/docs/).
+
+Open Policy Agent uses a datlog like syntax to write rules and uses json to represent data to be evaluated. 
+
+The current attribute tuple is represented as:
+
+```go
+
+type AttributeTuple struct {
+	CommonName   string `json:"CommonName`
+	SerialNumber string `json:"SerialNumber"`
+	Uri          string `json:"Uri"`
+	Host         string `json:"Host"`
+}
+
 ```
 
-#### Deployment to "local" virtualbox
-This creates a directory `local` containing a statefile and config.
-```bash
-make local create
-cp config.virtualbox.nix local/config.nix
-make local deploy
+And a rule to check if a user exists is written as:
+
+```
+authorize = true {
+    data.users[_].name = input.CommonName
+}
 ```
 
-#### SSH into machines using ssh-agent
-```bash
-make local ssh ace
+The OPA test case for this is:
+
+```
+users = [
+    {
+        "name" :"USER.ADMIN.1",
+        "roles": [
+            "admin",
+            "service1-user",
+            "service1-admin"
+        ]
+    }
+]
+
+inputs = [
+    {
+        "CommonName": "USER.ADMIN.1",
+        "Host": "service1",
+        "Uri": "/admin"
+    }
+]
+
+test_host_service1_path_admin {
+    authorize with input as inputs[0] with data.users as users 
+}
 ```
 
-#### Update
-```bash
-make local deploy
+### Traefik (ACME, Auth, and Backends)
+
+Traefik is the current proxy of choice as it fullfills our requirements:
+
+ - ACME for server certificates
+
+ - Service Discovery (for future use)
+
+ - Forward Auth mechansism [with client cert data](https://github.com/containous/traefik/pull/4557)
+
+ - Easy to automate config
+
+ - Written in Go (easy to package)
+
+ - Hot swap config/ACME/certs
+
+AccessProxy builds the config at bake time. Below is an example config:
+
+```toml
+defaultEntrypoints = ["https"]
+logLevel = "DEBUG"
+
+[acme]
+caServer = "https://acme-v02.api.letsencrypt.org/directory"
+email = "dev@example.com"
+entryPoint = "https"
+storage = "/var/lib/traefik/acme.json"
+
+[[acme.domains]]
+main = "example.com"
+sans = ["example.com", "office.example.com"]
+
+[acme.httpChallenge]
+entryPoint = "http"
+
+[backends]
+
+[backends.office]
+
+[backends.office.servers]
+
+[backends.office.servers.server1]
+url = "http://10.0.0.2"
+
+[entryPoints]
+
+[entryPoints.http]
+address = ":80"
+
+[entryPoints.https]
+address = ":443"
+
+[entryPoints.https.tls]
+cipherSuites = ["TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", "TLS_RSA_WITH_AES_256_GCM_SHA384"]
+minVersion = "VersionTLS12"
+sniStrict = true
+
+[entryPoints.https.tls.ClientCA]
+files = ["path.pem"]
+optional = false
+
+[[entryPoints.https.tls.certificates]]
+certFile = "path.crt"
+keyFile = "path.key"
+
+[file]
+
+[frontends]
+
+[frontends.office]
+backend = "office"
+entryPoints = ["https"]
+passHostHeader = true
+
+[frontends.office.auth]
+
+[frontends.office.auth.forward]
+address = "http://127.0.0.1:9000"
+
+[frontends.office.passTLSClientCert]
+pem = true
+
+[frontends.office.passTLSClientCert.infos]
+notAfter = true
+notBefore = true
+
+[frontends.office.passTLSClientCert.infos.issuer]
+commonName = true
+country = true
+domainComponent = true
+locality = true
+organization = true
+province = true
+serialNumber = true
+
+[frontends.office.passTLSClientCert.infos.subject]
+commonName = true
+country = true
+domainComponent = true
+locality = true
+organization = true
+province = true
+serialNumber = true
+
+[frontends.office.routes]
+
+[frontends.office.routes.test_1]
+rule = "Host: example.com,office.example.com"
 ```
-
-#### Documents
-``` bash
-make doc
-```
-
-### ONLYOFFICE setup
-
-Modify this as needed. Defaults can be modified in DEPLOYMENT/config.nix
-
-1. Login as root/SOMEPASSWORD
-2. Top-right user icon -> "+ App" -> "Office & Text" -> Add ONLYOFFICE app
-3. Top-right user icon -> "Settings" -> "ONLYOFFICE"
-4. Document Editing Service: https://office.cloud.example.com/
-5. Advanced -> Internal Document Editing Service: http://office.cloud.example.com/
-6. Advanced -> Internal Server: http://cloud.example.com/
