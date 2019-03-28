@@ -216,4 +216,4 @@ rule = "Host: example.com,office.example.com"
 ```
 
 
-[plan]: https://github.com/deptofdefense/accessproxyredux/Plan_v2.md
+[plan]: https://github.com/deptofdefense/accessproxyredux/blob/master/Plan_v2.md
