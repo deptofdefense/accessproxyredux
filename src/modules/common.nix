@@ -1,18 +1,11 @@
-{config, pkgs, lib, nodes, name, resources, extraConfiguration, ...}:
+{config, pkgs, lib, nodes, name, resources, ...}:
 let
   cfg = config.common;
-  cfgI = config.common.instances.${name};
-  thing = let
-    res = builtins.tryEval (
-      if name != null then (import <config.nix>).instances.${name}.extraConfig else {});
-    in 
-      if res.success then res.value else {};
 
   inherit (lib) mkOption types;
 in 
   {
-  imports = [ 
-    <nixpkgs/nixos/modules/profiles/minimal.nix> ];
+  imports = [ <nixpkgs/nixos/modules/profiles/minimal.nix> ];
 
   options = with types; {
     common.resources = mkOption {
@@ -109,6 +102,8 @@ in
       in if res.success && res.value != null then res.value else res2.value;
     in
     {
+    system.nixos.label = 
+        builtins.readFile (<nixpkgs/.git-revision>);
 
     networking.extraHosts = with config.common.instances; ''
       ${office.wg} ${office.hostname}
@@ -117,11 +112,6 @@ in
 
     boot.extraModulePackages = [ config.boot.kernelPackages.wireguard ];
     networking.firewall.allowedUDPPorts = [ 51820 ];
-    deployment.keys."wg.priv" = let 
-      a = resources.output."wg_key_${name}".value;
-      in if a == null then {} else {
-      text = (builtins.fromJSON a).priv;
-    };
 
     systemd.services.wireguard-wg0.after = [ "wg.priv-key.service" ];
     networking.wireguard.interfaces = {
@@ -137,22 +127,6 @@ in
       };
     };
     
-    deployment.targetEnv = cfg.instances.ace.targetEnv;
-    deployment.ec2 = if cfg.instances."${name}".targetEnv == "ec2" then {
-        securityGroups = [ resources.ec2SecurityGroups.office-sg ];
-        tags.Project="zerotrust";
-        ebsInitialRootDiskSize = 30;
-        ebsOptimized = true;
-        associatePublicIpAddress = true;
-        instanceType = "t3.large";
-    } // cfg.instances."${name}".ec2 else {};
-    ec2.hvm = true;
-
-    deployment.virtualbox = if cfg.instances."${name}".targetEnv == "virtualbox" then {
-      memorySize = 4096; # megabytes
-      vcpu = 2; # number of cpus
-      headless = true;
-    } else {};
 
     nixpkgs.overlays = [ 
       (import ../overlays/pkgs.nix)

@@ -14,7 +14,10 @@ let
      ./overlays/0001-Temp-fix-for-Azure-in-NixOps.patch
    ];
  
-   patchedPkgs = hostPkgs.runCommand "nixpkgs-custom"
+   patchedPkgs = let 
+     rev = "nixpkgs-" + builtins.substring 0 8 pinnedVersion.rev;
+     in 
+     hostPkgs.runCommand rev
      {
        inherit pinnedPkgs;
        inherit patches;
@@ -26,5 +29,6 @@ let
          echo "Applying patch $p";
          patch -d $out -p1 < "$p";
        done
+       echo -n ${rev} > $out/.git-revision
      '';
  in patchedPkgs

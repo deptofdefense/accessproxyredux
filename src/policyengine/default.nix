@@ -4,15 +4,15 @@
 buildGoPackage rec {
   name = "policyengine-unstable-${version}";
   version = "2019-03-19";
-  rev = "967c7e4df741ac2a85becfb67d281bffdf83f317";
+  rev = "9300614921d1dc80af61bf0c8d77c2db627a46bb";
 
   goPackagePath = "github.com/deptofdefense/policyengine";
   subPackages = ["cmd"];
 
   src = fetchgit {
     inherit rev;
-    url = "git@github.com:deptofdefense/policyengine";
-    sha256 = "1mlabihlb30953rxa384phb91n0s81naiw4cmp5c4fcc84hkimln";
+    url = "https://github.com/deptofdefense/policyengine";
+    sha256 = "0skv3y7j1jnxvhq40i07nn516s1gpwq9z5syld4c9dr9q7m65syk";
   };
 
   goDeps = ./deps.nix;

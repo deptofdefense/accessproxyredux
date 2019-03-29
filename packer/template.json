@@ -1,0 +1,46 @@
+{
+  "builders": [
+    {
+      "type": "virtualbox-iso",
+      "boot_wait": "45s",
+      "boot_command": [
+        "fdisk /dev/sda<enter>",
+        "n",
+        "<enter><enter><enter><enter><enter>",
+        "a<enter>",
+        "w<enter>",
+        "<wait>",
+        "mkfs.ext4 -j -L nixos /dev/sda1<enter><wait5>",
+        "mount LABEL=nixos /mnt<enter><wait>",
+        "nixos-generate-config --root /mnt<enter><wait>",
+        "mkdir -p /mnt/etc/nixos/src/overlays<enter>",
+        "curl http://{{ .HTTPIP }}:{{ .HTTPPort }}/configuration.nix > /mnt/etc/nixos/configuration.nix<enter><wait>",
+        "curl http://{{ .HTTPIP }}:{{ .HTTPPort }}/src/nixpkgs.nix > /mnt/etc/nixos/src/nixpkgs.nix<enter><wait>",
+        "curl http://{{ .HTTPIP }}:{{ .HTTPPort }}/src/nixpkgs-version.json > /mnt/etc/nixos/src/nixpkgs-version.json<enter><wait>",
+        "curl http://{{ .HTTPIP }}:{{ .HTTPPort }}/src/overlays/0001-docker-decl.patch > /mnt/etc/nixos/src/overlays/0001-docker-decl.patch<enter><wait>",
+        "curl http://{{ .HTTPIP }}:{{ .HTTPPort }}/src/overlays/0001-Temp-fix-for-Azure-in-NixOps.patch> /mnt/etc/nixos/src/overlays/0001-Temp-fix-for-Azure-in-NixOps.patch<enter><wait>",
+        "nixos-install --no-root-passwd --option substituters http://ubuntu && reboot<enter>"
+      ],
+      "guest_additions_mode": "disable",
+      "guest_os_type": "Linux_64",
+      "http_directory": "nixos",
+      "iso_checksum": "0ebcadcca0af6df76466bf9777134ff2f576b626c8c9c1ce55c0c9988db3d59e",
+      "iso_checksum_type": "sha256",
+      "iso_url": "https://releases.nixos.org/nixos/unstable/nixos-19.09pre173349.07b42ccf2de/nixos-minimal-19.09pre173349.07b42ccf2de-x86_64-linux.iso",
+      "shutdown_command": "shutdown -h now",
+      "post_shutdown_delay": "30s",
+      "disk_size": 40000,
+      "ssh_username": "root",
+      "ssh_password": "root",
+      "ssh_wait_timeout": "20m",
+      "virtualbox_version_file": ".vbox_version",
+      "headless": true,
+      "vboxmanage": [
+        ["modifyvm", "{{.Name}}", "--memory", "2048"],
+        ["modifyvm", "{{.Name}}", "--cpus", "4"],
+        ["modifyvm", "{{.Name}}", "--hostonlyadapter2", "vboxnet0" ]
+      ]
+    }
+  ]
+}
+

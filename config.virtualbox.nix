@@ -9,11 +9,13 @@
       jq '{pub:$pub,priv:$priv}' --null-input --rawfile pub $out/publickey --rawfile priv $out/privatekey
     '';
   };
+  email = "dev@example.com";
   instances = {
     ace = {
       hostname = "cloud.example.com";
       targetEnv = "virtualbox";
       wg = "10.0.0.1";
+      acmeServer = "https://acme-staging-v02.api.letsencrypt.org/directory";
       extraConfig = {
         users.users.root.openssh.authorizedKeys = { keyFiles = [ /home/SOMEUSER/.ssh/id_ecdsa.pub ]; };
       };
