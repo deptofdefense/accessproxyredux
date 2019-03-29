@@ -43,13 +43,11 @@ in
     addons.dashboard.enable = true;
     roles = ["master" "node"];
     masterAddress = "kube";
-    kubelet.seedDockerImages = let
+    kubelet.seedDockerImages = [
 
-      policyengine-image = pkgs.dockerTools.buildLayeredImage {
+      (pkgs.dockerTools.buildLayeredImage {
         name = "policyengine";
         tag = "latest";
-
-        contents = [ pkgs.policyengine pkgs.busybox];
         config = {
           Cmd = [ "${pkgs.policyengine}/bin/cmd" "--help" ];
           WorkingDir = "/data";
@@ -57,9 +55,33 @@ in
             "/data" = {};
           };
         };
-      };
+      })
 
-  in [policyengine-image ];
+      (pkgs.dockerTools.buildLayeredImage {
+        name = "opa";
+        tag = "latest";
+        config = {
+          Cmd = [ "${pkgs.opa}/bin/opa" "--help" ];
+          WorkingDir = "/data";
+          Volumes = {
+            "/data" = {};
+          };
+        };
+      })
+
+      (pkgs.dockerTools.buildLayeredImage {
+        name = "traefik";
+        tag = "latest";
+        config = {
+          Cmd = [ "${pkgs.traefik2}/bin/traefik" "--help" ];
+          WorkingDir = "/data";
+          Volumes = {
+            "/data" = {};
+          };
+        };
+      })
+    ];
+
   };
   services.etcd.enable = true;
   services.dockerRegistry.enable = true;
