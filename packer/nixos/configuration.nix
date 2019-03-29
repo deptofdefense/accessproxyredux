@@ -36,10 +36,10 @@ in
   ];
 
   networking.enableIPv6 = false;
-  networking.extraHosts = [
-    "127.0.0.1 api.kube"
-    "127.0.0.1 kube"
-    ];
+  networking.extraHosts = ''
+    127.0.0.1 api.kube
+    127.0.0.1 kube
+    '';
   services.kubernetes = {
     easyCerts = true;
     addons.dashboard.enable = true;
