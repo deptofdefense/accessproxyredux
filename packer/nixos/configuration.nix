@@ -8,6 +8,9 @@ in
     <nixpkgs/nixos/modules/profiles/minimal.nix>
     #<nixpkgs/nixos/modules/virtualisation/virtualbox-image.nix>
   ];
+  nixpkgs.overlays = [ 
+    (import ./src/overlays/pkgs.nix)
+  ];
 
   # Use the GRUB 2 boot loader.
   boot.loader.grub.enable = true;
@@ -18,37 +21,45 @@ in
     device = "/dev/
   };
   */
-
   nix.nixPath = ["nixpkgs=${nixpkgs}:nixos-config=/etc/nixos/configuration.nix" ];
  
-  nixpkgs.overlays = [
-  ];
   users.mutableUsers = false;
-
-  # Enable the OpenSSH daemon.
   services.openssh.enable = true;
   services.openssh.permitRootLogin = "yes";
 
-  # we always want git and vim
+  # Kube
   environment.systemPackages = with pkgs; [ 
-    gitMinimal vim tree
     kompose kubectl
+    policyengine 
   ];
-
   networking.enableIPv6 = false;
+
   networking.extraHosts = ''
     127.0.0.1 api.kube
-    127.0.0.1 kube
     '';
+
   services.kubernetes = {
     easyCerts = true;
     addons.dashboard.enable = true;
     roles = ["master" "node"];
-    apiserver = {
-      securePort = 443;
-      advertiseAddress = "api.kube";
-    };
     masterAddress = "kube";
+    kubelet.seedDockerImages = let
+
+      policyengine-image = pkgs.dockerTools.buildLayeredImage {
+        name = "policyengine";
+        tag = "latest";
+
+        contents = [ pkgs.policyengine pkgs.busybox];
+        config = {
+          Cmd = [ "${pkgs.policyengine}/bin/cmd" "--help" ];
+          WorkingDir = "/data";
+          Volumes = {
+            "/data" = {};
+          };
+        };
+      };
+
+  in [policyengine-image ];
   };
   services.etcd.enable = true;
   services.dockerRegistry.enable = true;

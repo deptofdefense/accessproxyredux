@@ -1,9 +1,12 @@
 # update nixpkgs-version.json:
 # nix-prefetch-git https://github.com/NixOS/nixpkgs.git de0612c46cf17a368e92eaac91fd94affbe36488 > nixpkgs-version.json
 let
-   hostPkgs = import <nixpkgs> {};
-   pinnedVersion = hostPkgs.lib.importJSON ./nixpkgs-version.json;
-   pinnedPkgs = hostPkgs.fetchFromGitHub {
+   pinnedVersion = with builtins; fromJSON (readFile ./nixpkgs-version.json);
+   fetcher = { owner, repo, rev, sha256 }: builtins.fetchTarball {
+     inherit sha256;
+     url = "https://github.com/${owner}/${repo}/archive/${rev}.tar.gz";
+   };
+   pinnedPkgs = fetcher {
      owner = "NixOS";
      repo = "nixpkgs";
      inherit (pinnedVersion) rev sha256;
@@ -17,7 +20,7 @@ let
    patchedPkgs = let 
      rev = "nixpkgs-" + builtins.substring 0 8 pinnedVersion.rev;
      in 
-     hostPkgs.runCommand rev
+     (import pinnedPkgs{}).runCommand rev
      {
        inherit pinnedPkgs;
        inherit patches;
