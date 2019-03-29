@@ -19,7 +19,7 @@
         "curl http://{{ .HTTPIP }}:{{ .HTTPPort }}/src/nixpkgs-version.json > /mnt/etc/nixos/src/nixpkgs-version.json<enter><wait>",
         "curl http://{{ .HTTPIP }}:{{ .HTTPPort }}/src/overlays/0001-docker-decl.patch > /mnt/etc/nixos/src/overlays/0001-docker-decl.patch<enter><wait>",
         "curl http://{{ .HTTPIP }}:{{ .HTTPPort }}/src/overlays/0001-Temp-fix-for-Azure-in-NixOps.patch> /mnt/etc/nixos/src/overlays/0001-Temp-fix-for-Azure-in-NixOps.patch<enter><wait>",
-        "nixos-install --no-root-passwd --option substituters http://ubuntu && reboot<enter>"
+        "nixos-install --no-root-passwd && reboot<enter>"
       ],
       "guest_additions_mode": "disable",
       "guest_os_type": "Linux_64",

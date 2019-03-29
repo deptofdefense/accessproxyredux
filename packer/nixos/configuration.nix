@@ -35,15 +35,20 @@ in
     kompose kubectl
   ];
 
+  networking.enableIPv6 = false;
+  networking.extraHosts = [
+    "127.0.0.1 api.kube"
+    "127.0.0.1 kube"
+    ];
   services.kubernetes = {
     easyCerts = true;
     addons.dashboard.enable = true;
     roles = ["master" "node"];
     apiserver = {
       securePort = 443;
-      advertiseAddress = "hostname";
+      advertiseAddress = "api.kube";
     };
-    masterAddress = "localhost";
+    masterAddress = "kube";
   };
   services.etcd.enable = true;
   services.dockerRegistry.enable = true;
