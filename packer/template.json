@@ -17,7 +17,7 @@
         "curl http://{{ .HTTPIP }}:{{ .HTTPPort }}/configuration-base.nix > /mnt/etc/nixos/configuration.nix<enter><wait>",
         "curl http://{{ .HTTPIP }}:{{ .HTTPPort }}/src/nixpkgs.nix > /mnt/etc/nixos/src/nixpkgs.nix<enter><wait>",
         "curl http://{{ .HTTPIP }}:{{ .HTTPPort }}/src/nixpkgs-version.json > /mnt/etc/nixos/src/nixpkgs-version.json<enter><wait>",
-        "nixos-install --no-root-passwd --option substituters http://ubuntu && reboot<enter>"
+        "nixos-install --no-root-passwd && reboot<enter>"
       ],
       "guest_additions_mode": "disable",
       "guest_os_type": "Linux_64",
