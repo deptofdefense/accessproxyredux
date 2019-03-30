@@ -13,8 +13,8 @@ let
    };
  
    patches = [
-     ./overlays/0001-docker-decl.patch
-     ./overlays/0001-Temp-fix-for-Azure-in-NixOps.patch
+     #./overlays/0001-docker-decl.patch
+     #./overlays/0001-Temp-fix-for-Azure-in-NixOps.patch
    ];
  
    patchedPkgs = let 
@@ -34,4 +34,5 @@ let
        done
        echo -n ${rev} > $out/.git-revision
      '';
- in patchedPkgs
+ in
+    patchedPkgs

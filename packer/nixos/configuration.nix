@@ -31,6 +31,7 @@ in
   environment.systemPackages = with pkgs; [ 
     kompose kubectl
     policyengine 
+    gitMinimal vim
   ];
   networking.enableIPv6 = false;
 
