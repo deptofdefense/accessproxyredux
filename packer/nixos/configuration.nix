@@ -16,11 +16,7 @@ in
   boot.loader.grub.enable = true;
   boot.loader.grub.version = 2;
   boot.loader.grub.device = "/dev/sda";
-  /*
-  fileSystems."/" {
-    device = "/dev/
-  };
-  */
+  boot.kernelParams = ["video=640x480"];
   nix.nixPath = ["nixpkgs=${nixpkgs}:nixos-config=/etc/nixos/configuration.nix" ];
  
   users.mutableUsers = false;
@@ -43,7 +39,7 @@ in
     easyCerts = true;
     addons.dashboard.enable = true;
     roles = ["master" "node"];
-    masterAddress = "kube";
+    masterAddress = "api.kube";
     kubelet.seedDockerImages = [
 
       (pkgs.dockerTools.buildLayeredImage {
